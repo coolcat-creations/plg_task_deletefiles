@@ -219,6 +219,9 @@ class PlgTaskDeletefiles extends CMSPlugin implements SubscriberInterface
 
 		if (is_dir($directoryPath)) {
 
+			$this->addTaskLog('its a directory');
+
+
 			$items = scandir($directoryPath);
 
 			foreach ($items as $item) {
@@ -227,7 +230,7 @@ class PlgTaskDeletefiles extends CMSPlugin implements SubscriberInterface
 
 					$itemPath = $directoryPath . '/' . $item;
 
-					if (File::exists($itemPath) && !is_link($itemPath)) {
+					if (Folder::exists($itemPath) && !is_link($itemPath)) {
 
 						if (!$this->deleteDirectory($itemPath)) {
 							$this->addTaskLog('Line 257');
@@ -289,7 +292,7 @@ class PlgTaskDeletefiles extends CMSPlugin implements SubscriberInterface
 						$this->addTaskLog($itemPath . ' is too old and will be deleted');
 
 						if ($isDirectory) {
-							
+
 							if ($this->deleteDirectory($itemPath)) {
 								$this->addTaskLog('Deleted directory ' . $ageInDays . ' old: ' . $itemPath);
 							} else {
