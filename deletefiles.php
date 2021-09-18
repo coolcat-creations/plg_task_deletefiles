@@ -13,6 +13,10 @@
 defined('_JEXEC') or die;
 
 use Joomla\CMS\Form\Form;
+use Joomla\CMS\Filesystem\Folder;
+use Joomla\CMS\Filesystem\File;
+use Joomla\CMS\Filesystem\Path;
+use Joomla\CMS\Date\Date;
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\Component\Scheduler\Administrator\Event\ExecuteTaskEvent;
 use Joomla\Component\Scheduler\Administrator\Traits\TaskPluginTrait;
@@ -35,8 +39,8 @@ class PlgTaskDeletefiles extends CMSPlugin implements SubscriberInterface
 	private const TASKS_MAP = [
 		'deletefiles' => [
 			'langConstPrefix' => 'PLG_TASK_DELETEFILES_TASKS',
-			'call'            => 'deletefiles',
-			'form'            => 'deletefilesTaskForm'
+			'call' => 'deletefiles',
+			'form' => 'deletefilesTaskForm'
 		]
 	];
 
@@ -68,14 +72,14 @@ class PlgTaskDeletefiles extends CMSPlugin implements SubscriberInterface
 	public static function getSubscribedEvents(): array
 	{
 		return [
-			'onTaskOptionsList'    => 'advertiseRoutines',
-			'onExecuteTask'        => 'routineHandler',
+			'onTaskOptionsList' => 'advertiseRoutines',
+			'onExecuteTask' => 'routineHandler',
 			'onContentPrepareForm' => 'manipulateForms'
 		];
 	}
 
 	/**
-	 * @param   ExecuteTaskEvent  $event  onExecuteTask Event
+	 * @param ExecuteTaskEvent $event onExecuteTask Event
 	 *
 	 * @return  void
 	 *
@@ -84,29 +88,31 @@ class PlgTaskDeletefiles extends CMSPlugin implements SubscriberInterface
 	 */
 	public function routineHandler(ExecuteTaskEvent $event): void
 	{
-		if (!array_key_exists($routineId = $event->getRoutineId(), self::TASKS_MAP))
-		{
+
+		// this is obligatory
+		if (!array_key_exists($routineId = $event->getRoutineId(), self::TASKS_MAP)) {
 			return;
 		}
 
+		// starting the task
 		$this->taskStart($event);
 
-		// Access to task parameters
+		// check the timeout
 		$timeout = $params->timeout ?? 1;
-		$timeout = ((int) $timeout) ?: 1;
+		$timeout = ((int)$timeout) ?: 1;
+
 
 		// Plugin does whatever it wants
 
-		if (array_key_exists('call', self::TASKS_MAP[$routineId]))
-		{
+		if (array_key_exists('call', self::TASKS_MAP[$routineId])) {
 //			$this->{self::TASKS_MAP[$routineId]['call']}();
+
+			$this->addTaskLog('Hi there!');
+
 
 			$params = $event->getArgument('params');
 
 			$this->initWithParameters($params);
-
-			// Initialize global variables
-			$currentTime = time();
 
 			// Scan and delete
 			$this->deleteOlderItems();
@@ -117,7 +123,7 @@ class PlgTaskDeletefiles extends CMSPlugin implements SubscriberInterface
 	}
 
 	/**
-	 * @param   Event  $event  The onContentPrepareForm event.
+	 * @param Event $event The onContentPrepareForm event.
 	 *
 	 * @return  void
 	 *
@@ -132,156 +138,72 @@ class PlgTaskDeletefiles extends CMSPlugin implements SubscriberInterface
 
 		$context = $form->getName();
 
-		if ($context === 'com_scheduler.task')
-		{
+		if ($context === 'com_scheduler.task') {
 			$this->enhanceTaskItemForm($form, $data);
 		}
 	}
 
-	public function deleteDirectory($directoryPath)
-	{
-
-		// Add directory separator if necessary
-		if (!endsWith($directoryPath, DIRECTORY_SEPARATOR))
-		{
-			$directoryPath .= DIRECTORY_SEPARATOR;
-		}
-
-		if (is_dir($directoryPath))
-		{
-
-			$items = scandir($directoryPath);
-
-			foreach ($items as $item)
-			{
-
-				if ($item != '.' && $item != '..')
-				{
-
-					$itemPath = $directoryPath . $item;
-
-					if (is_dir($itemPath) && !is_link($itemPath))
-					{
-
-						if (!$this->deleteDirectory($itemPath))
-						{
-
-							return false;
-
-						}
-
-					}
-					else
-					{
-
-						if (!unlink($itemPath))
-						{
-
-							return false;
-
-						}
-
-					}
-				}
-			}
-
-			rmdir($directoryPath);
-
-			return true;
-
-		}
-		else
-		{
-
-			return false;
-		}
-
-	}
 
 	public function initWithParameters($params)
 	{
 
-		$this->addTaskLog('This plugin is checkin the params');
+		$this->addTaskLog('I am checking your params');
 
-		// Initializes global variables from command line parameters
-		function endsWith($haystack, $needle) {
+		global $directoryPath, $dayCount, $deletedirectories, $currentTime, $debugMode;
 
-			// Checks whether a string ends with the specified substring
 
-			$length = strlen($needle);
+		$currentTime = new Date();
+		$currentTime = $currentTime->toUnix(); // 1354375200
 
-			if ($length == 0) {
-				return true;
-			}
-
-			return (substr($haystack, -$length) === $needle);
-		}
-
-		global $directoryPath, $dayCount, $includeDirectories, $debugMode;
-
-		if (!isset($params))
-		{
+		if (!isset($params)) {
 			// No parameters
-			$this->addTaskLog('No parameters', 'error');
-		}
-		else
-		{
-			if (!$params->directory || !$params->days)
-			{
+			$this->addTaskLog('No params found', 'error');
+		} else {
+			if (!$params->directory || !$params->days) {
 				// Missing important params
-				$this->addTaskLog('This script requires the directory and the age of the files.');
-			}
-
-			else
-			{
+				$this->addTaskLog('This script requires the directory and the age of the files.', 'error');
+			} else {
 
 				// Get and validate the first parameter as a directory path
-				$directoryPath = $params->directory;
 
-				if (!endsWith($directoryPath, '/'))
-				{
-					$directoryPath .= DIRECTORY_SEPARATOR;
-				}
+				$directoryPath = Path::check(JPATH_ROOT . '/' . $params->directory);
 
-				if (!is_dir($directoryPath))
-				{
+				$this->addTaskLog('You want to clear ' . $directoryPath);
+
+
+				if (!Folder::exists($directoryPath)) {
 					$this->addTaskLog('No directory found at ' . $directoryPath . '. Please specify a valid directory path as the first parameter.');
+				} else {
+					$this->addTaskLog('I found ' . $directoryPath . '.');
 				}
 
 				// Get and validate the second parameter as an integer
-				if ((string) (int) $params->days != $params->days)
-				{
+				if ((string)(int)$params->days != $params->days) {
 					$this->addTaskLog('The file age parameter is invalid. Please specify an integer for the count of days.');
 				}
 
-				$dayCount = (int) $params->days;
+				$dayCount = (int)$params->days;
 
-				// Determine parameter value to include directories or not
-				$includeDirectories = false;
+				// Determine parameter value to delete directories or not
 
-				if ($params->deletedirectories)
-				{
-					if ($params->deletedirectories == '--delete-directories')
-					{
-						$includeDirectories = true;
-					}
-					else
-					{
-						$this->addTaskLog('Directories will be untouched');
+				$deletedirectories = false;
+
+				if ($params->deletedirectories) {
+					if ($params->deletedirectories == '1') {
+						$deletedirectories = true;
+						$this->addTaskLog('Directories will be deleted');
+					} else {
+						$this->addTaskLog('Directories will not be deleted');
 					}
 				}
 
 				$debugMode = false;
 				$debugMode = $params->debugMode;
 
-				if ($params->debugMode)
-				{
-					if ($params->debugMode == '1')
-					{
+				if ($params->debugMode) {
+					if ($params->debugMode == '1') {
 						$debugMode = true;
-					}
-					else
-					{
+					} else {
 						$debugMode = false;
 					}
 				}
@@ -292,62 +214,94 @@ class PlgTaskDeletefiles extends CMSPlugin implements SubscriberInterface
 
 	}
 
+	public function deleteDirectory($directoryPath)
+	{
+
+		if (is_dir($directoryPath)) {
+
+			$items = scandir($directoryPath);
+
+			foreach ($items as $item) {
+
+				if ($item != '.' && $item != '..') {
+
+					$itemPath = $directoryPath . '/' . $item;
+
+					if (File::exists($itemPath) && !is_link($itemPath)) {
+
+						if (!$this->deleteDirectory($itemPath)) {
+							$this->addTaskLog('Line 257');
+							return false;
+						}
+
+					} else {
+
+						if (!unlink($itemPath)) {
+							$this->addTaskLog($itemPath . ' was not deleted');
+
+							return false;
+
+						}
+
+					}
+				}
+			}
+
+			$this->addTaskLog('Line 278' . $directoryPath);
+
+			rmdir($directoryPath);
+
+			return true;
+		} else {
+
+			return false;
+		}
+
+	}
+
 	public function deleteOlderItems()
 	{
 
 		// Scans the directory for older items and deletes them
 
-		global $directoryPath, $dayCount, $includeDirectories, $currentTime;
+		global $directoryPath, $dayCount, $deletedirectories, $currentTime;
 
 		$this->addTaskLog('Starting now the task');
-
 
 		$ignoredItems = ['.', '..'];
 
 		$scan = scandir($directoryPath);
 
-		foreach ($scan as $key => $itemName)
-		{
+		foreach ($scan as $key => $itemName) {
 
-			if (!in_array($itemName, $ignoredItems))
-			{
+			if (!in_array($itemName, $ignoredItems)) {
 
-				$itemPath = $directoryPath . $itemName;
+				$itemPath = $directoryPath . '/' . $itemName;
+
 				$isDirectory = is_dir($itemPath);
 
-				if ($includeDirectories || !$isDirectory)
-				{
+				if ($deletedirectories || !$isDirectory) {
 
 					$creationTime = filemtime($itemPath);
-
 					$ageInDays = floor(($currentTime - $creationTime) / 60 / 60 / 24);
 
-					if ($ageInDays >= $dayCount)
-					{
+					if ($ageInDays >= $dayCount) {
+						$this->addTaskLog($itemPath . ' is too old and will be deleted');
 
-						if ($isDirectory)
-						{
-
-							if ($this->deleteDirectory($itemPath))
-							{
-								$this->addTaskLog('Deleted directory ' . dayCountWithSuffix($ageInDays) . ' old: ' . $itemPath);
-							}
-							else
-							{
-								$this->addTaskLog('Could not delete directory ' . dayCountWithSuffix($ageInDays) . ' old: ' . $itemPath);
+						if ($isDirectory) {
+							
+							if ($this->deleteDirectory($itemPath)) {
+								$this->addTaskLog('Deleted directory ' . $ageInDays . ' old: ' . $itemPath);
+							} else {
+								$this->addTaskLog('Could not delete directory ' . $ageInDays . ' old: ' . $itemPath);
 							}
 
-						}
-						else
-						{
+						} else {
 
-							if (unlink($itemPath))
-							{
-								$this->addTaskLog('Deleted file ' . dayCountWithSuffix($ageInDays) . ' old: ' . $itemPath);
-							}
-							else
-							{
-								$this->addTaskLog('Could not delete file ' . dayCountWithSuffix($ageInDays) . ' old: ' . $itemPath);
+							if (unlink($itemPath)) {
+								$this->addTaskLog('Deleted file ' . $ageInDays . ' old: ' . $itemPath);
+							} else {
+								$this->addTaskLog('Could not delete file ' . $ageInDays . ' old: ' . $itemPath);
 							}
 
 						}
@@ -358,7 +312,7 @@ class PlgTaskDeletefiles extends CMSPlugin implements SubscriberInterface
 
 			}
 
-			$this->addTaskLog('Processed:' .  $itemName);
+			$this->addTaskLog('Processed:' . $itemName);
 
 
 		}
@@ -367,6 +321,7 @@ class PlgTaskDeletefiles extends CMSPlugin implements SubscriberInterface
 
 
 	}
+
 
 
 }

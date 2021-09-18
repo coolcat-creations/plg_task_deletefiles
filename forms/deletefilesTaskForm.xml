@@ -27,12 +27,12 @@
 					required="true"
 					recursive="true"
 			/>
-			<field name="deletedirectories" type="radio" default="" label="PLG_TASK_DELETEFILES_DELETE_DIRECTORIES" description="">
-				<option value="--delete-directories">Yes</option>
-				<option value="">No</option>
+			<field name="deletedirectories" type="radio" default="0" label="PLG_TASK_DELETEFILES_DELETE_DIRECTORIES" description="">
+				<option value="1">Yes</option>
+				<option value="0">No</option>
 			</field>
 
-			<field name="debugmode" type="radio" default="0" label="PLG_TASK_DELETEFILES_DEBUGMODE" description="">
+			<field name="debugMode" type="radio" default="0" label="PLG_TASK_DELETEFILES_DEBUGMODE" description="">
 				<option value="1">Yes</option>
 				<option value="0">No</option>
 			</field>
