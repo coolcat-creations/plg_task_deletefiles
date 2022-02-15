@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <extension version="4.1" type="plugin" group="task" method="upgrade">
 	<name>DeleteFiles</name>
-	<author>Joomla! Project</author>
+	<author>Elisa Foltyn</author>
 	<creationDate>July 2021</creationDate>
 	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
 	<version>4.1</version>
-	<description>Task to clear a specific folder - Use with caution</description>
+	<description>Task to clear a specific folder - Use with caution!</description>
 	<files>
 		<filename plugin="deletefiles">deletefiles.php</filename>
 	</files>

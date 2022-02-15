@@ -19,6 +19,8 @@
 					label="PLG_TASK_DELETEFILES_DIRECTORY_LABEL"
 					required="true"
 					recursive="true"
+					default="false"
+					exclude="api|cli|installation|administrator|components|modules|libraries|layouts|includes|media/vendor|plugins|media/plg_*|media/com_*|media/mod_*|language|media/system|media/templates|templates|media/legacy|media/mailto"
 			/>
 			<field
 					name="days"
